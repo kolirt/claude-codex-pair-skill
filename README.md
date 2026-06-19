@@ -210,6 +210,29 @@ ignored — protection against an accidental mock in production).
 
 ---
 
+## Cache & cleanup
+
+Each verification round writes a small working set to
+`~/.claude-codex-pair/handoff/<repo-key>/run-<nonce>/` (request, diff, prompt, verdict).
+The diff can be sizable (the whole working-tree diff).
+
+**Automatic:** on every `verify.sh` run, run dirs older than 1 day are pruned for that
+repo (you don't call this — it runs at the start of each invocation):
+
+```bash
+find ~/.claude-codex-pair/handoff/<repo-key> -maxdepth 1 -name 'run-*' -type d -mtime +1 -exec rm -rf {} +
+```
+
+What automatic cleanup does **not** cover: handoff dirs of repos you stop using (they
+linger, since the prune only runs when you invoke `verify.sh` in that repo again), and
+`*.bak.*` backups left by repeated `install.sh` runs.
+
+**Manual full cleanup** (safe — the handoff cache is transient and regenerated):
+
+```bash
+rm -rf ~/.claude-codex-pair/handoff/*
+```
+
 ## Uninstall
 
 ```bash
