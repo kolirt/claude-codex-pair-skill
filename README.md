@@ -18,6 +18,22 @@ strengths give two independent perspectives.
 
 ---
 
+## Contents
+
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Formats](#formats)
+- [What makes it robust](#what-makes-it-robust-engineering-decisions)
+- [Tests](#tests)
+- [Cache & cleanup](#cache--cleanup)
+- [Uninstall](#uninstall)
+- [Repository layout](#repository-layout)
+- [Limitations](#limitations)
+
+---
+
 ## How it works
 
 - **One live terminal = the manager.** The CLI where you enabled pair mode.
