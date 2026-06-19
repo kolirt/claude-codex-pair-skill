@@ -100,7 +100,7 @@ t "verify.sh installed exec" '[ -x "$HOME2/.claude-codex-pair/verify.sh" ]'
 t "MANAGER installed" '[ -f "$HOME2/.claude-codex-pair/MANAGER.md" ]'
 t "VERIFIER installed" '[ -f "$HOME2/.claude-codex-pair/VERIFIER.md" ]'
 t "claude cmd installed" '[ -f "$HOME2/.claude/commands/pair.md" ]'
-t "codex prompt installed" '[ -f "$HOME2/.codex/prompts/pair.md" ]'
+t "codex skill installed" '[ -f "$HOME2/.codex/skills/pair/SKILL.md" ]'
 t "version marker" '[ -f "$HOME2/.claude-codex-pair/VERSION" ]'
 printf 'USER_ORIGINAL\n' > "$HOME2/.claude-codex-pair/MANAGER.md"
 HOME="$HOME2" bash "$HERE/../install.sh" >/dev/null 2>&1

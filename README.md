@@ -20,7 +20,7 @@ strengths give two independent perspectives.
 
 ## How it works
 
-- **One live terminal = the manager.** The CLI where you typed `/pair on`.
+- **One live terminal = the manager.** The CLI where you enabled pair mode.
 - **The verifier** is never activated interactively — the manager spawns it as a
   headless subprocess on demand, waits for the verdict, and moves on.
 - **Roles are interchangeable:** the manager can be Claude (then the verifier is
@@ -76,8 +76,8 @@ machine; nothing lands in your working repos):
 | Source | Destination |
 |--------|-------------|
 | `verify.sh`, `MANAGER.md`, `VERIFIER.md` | `~/.claude-codex-pair/` |
-| `commands/pair.md` | `~/.claude/commands/pair.md` |
-| `prompts/pair.md` | `~/.codex/prompts/pair.md` |
+| `commands/pair.md` | `~/.claude/commands/pair.md` (Claude slash command) |
+| `codex-skill/SKILL.md` | `~/.codex/skills/pair/SKILL.md` (Codex skill) |
 
 Existing files are backed up with a unique name (`*.bak.<stamp>.<ts>.<pid>`,
 fail-closed: if the backup fails, install does not overwrite the original).
@@ -88,13 +88,18 @@ The version is written to `~/.claude-codex-pair/VERSION`. Re-running `install.sh
 
 ## Usage
 
-In any repo, in Claude Code or Codex:
+Activation differs slightly per CLI (different extension mechanisms):
 
-```
-/pair on     # this terminal becomes the manager — consults + reviews
-   ...work as usual...
-/pair off    # back to solo
-```
+- **Claude Code** — a slash command:
+  ```
+  /pair on     # this terminal becomes the manager — consults + reviews
+     ...work as usual...
+  /pair off    # back to solo
+  ```
+- **Codex** — a skill (triggered by phrasing, since Codex has no custom slash commands).
+  Just say **`pair on`** / **`enter pair mode`** to activate, and **`pair off`** to stop.
+
+Either way, the terminal becomes the manager and the other agent is the headless verifier.
 
 From there everything happens automatically: at forks the manager consults (CONSULT),
 finished chunks go for review (REVIEW), it synthesizes the advice and reports to you.
@@ -237,7 +242,8 @@ rm -rf ~/.claude-codex-pair/handoff/*
 
 ```bash
 rm -rf ~/.claude-codex-pair
-rm -f ~/.claude/commands/pair.md ~/.codex/prompts/pair.md
+rm -f ~/.claude/commands/pair.md
+rm -rf ~/.codex/skills/pair
 ```
 
 ---
@@ -248,8 +254,8 @@ rm -f ~/.claude/commands/pair.md ~/.codex/prompts/pair.md
 verify.sh          # orchestrator helper (the heart of the mode)
 MANAGER.md         # manager protocol
 VERIFIER.md        # verifier/consultant protocol
-commands/pair.md   # /pair on|off for Claude Code
-prompts/pair.md    # /pair on|off for Codex
+commands/pair.md      # Claude Code slash command (/pair on|off)
+codex-skill/SKILL.md  # Codex skill -> ~/.codex/skills/pair/ (say "pair on")
 install.sh         # global install with backup
 test/smoke.sh      # 30 smoke tests
 ```

@@ -9,7 +9,7 @@ RAW="${PAIR_RAW_BASE:-https://raw.githubusercontent.com/kolirt/claude-codex-pair
 have_local(){ [ -n "$SRC" ] && [ -f "$SRC/verify.sh" ]; }
 STAMP="$( { have_local && git -C "$SRC" rev-parse --short HEAD 2>/dev/null; } || echo remote )"
 
-mkdir -p "$HOME/.claude-codex-pair" "$HOME/.claude/commands" "$HOME/.codex/prompts"
+mkdir -p "$HOME/.claude-codex-pair" "$HOME/.claude/commands" "$HOME/.codex/skills/pair"
 
 # fetch <relpath> -> stdout (local file if available, else GitHub raw)
 fetch(){
@@ -33,7 +33,7 @@ put(){ # <relpath> <dst> <mode>
 put verify.sh        "$HOME/.claude-codex-pair/verify.sh"          0755
 put MANAGER.md       "$HOME/.claude-codex-pair/MANAGER.md"         0644
 put VERIFIER.md      "$HOME/.claude-codex-pair/VERIFIER.md"        0644
-put commands/pair.md "$HOME/.claude/commands/pair.md" 0644
-put prompts/pair.md  "$HOME/.codex/prompts/pair.md"   0644
+put commands/pair.md    "$HOME/.claude/commands/pair.md"    0644
+put codex-skill/SKILL.md "$HOME/.codex/skills/pair/SKILL.md" 0644
 printf 'pair-mode %s\n' "$STAMP" > "$HOME/.claude-codex-pair/VERSION"
 echo "pair-mode installed ($STAMP)."
