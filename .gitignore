@@ -6,5 +6,5 @@
 .DS_Store
 
 # Pair-mode local artifacts (in case it's run inside this repo)
-.pair/
+.claude-codex-pair/
 *.bak.*

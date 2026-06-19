@@ -16,7 +16,7 @@ After each completed logical unit (feature/task); before declaring work done.
 1. Compose the request CONTENT in a temp file (do NOT compute handoff paths):
    - REVIEW: `MODE: review` + `TASK`/`DECISION`/`CHANGED`/`ACCEPTANCE`.
    - CONSULT: `MODE: consult` + `QUESTION`/`CONTEXT`/`OPTIONS` (options or `PROPOSE`)/`CRITERIA`/`LEANING`.
-2. Run: `~/.pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>`.
+2. Run: `~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>`.
 3. Read STDOUT (the verdict content) and the EXIT CODE:
    - `0`  → PASS / ADVICE
    - `10` → CHANGES_REQUESTED (fix and repeat; cap ~3 rounds, then escalate)

@@ -35,7 +35,7 @@ REQ="$SCRATCH/req.txt"; printf 'MODE: review\nTASK: x\n' > "$REQ"
 ( cd "$SCRATCH" && HOME="$SCRATCH/home" "$VERIFY" claude medium "$REQ" >/dev/null 2>&1 )
 # Compute KEY the same way verify.sh does (git rev-parse canonicalizes path on macOS).
 KEY=$(cd "$SCRATCH" && printf '%s' "$(git rev-parse --show-toplevel)" | shasum -a 256 | cut -c1-16)
-HPATH="$SCRATCH/home/.pair/handoff/$KEY"
+HPATH="$SCRATCH/home/.claude-codex-pair/handoff/$KEY"
 latest_run(){ ls -td "$HPATH"/run-*/ 2>/dev/null | head -1; }
 t "handoff created under repo-key" '[ -d "$HPATH" ]'
 
@@ -96,23 +96,23 @@ t "nonce stays standalone line (not glued)" 'grep -qE "^REQUEST_ID: [0-9a-f]+$" 
 # --- install.sh ---
 HOME2="$SCRATCH/home2"; mkdir -p "$HOME2"
 HOME="$HOME2" bash "$HERE/../install.sh" >/dev/null 2>&1
-t "verify.sh installed exec" '[ -x "$HOME2/.pair/verify.sh" ]'
-t "MANAGER installed" '[ -f "$HOME2/.pair/MANAGER.md" ]'
-t "VERIFIER installed" '[ -f "$HOME2/.pair/VERIFIER.md" ]'
+t "verify.sh installed exec" '[ -x "$HOME2/.claude-codex-pair/verify.sh" ]'
+t "MANAGER installed" '[ -f "$HOME2/.claude-codex-pair/MANAGER.md" ]'
+t "VERIFIER installed" '[ -f "$HOME2/.claude-codex-pair/VERIFIER.md" ]'
 t "claude cmd installed" '[ -f "$HOME2/.claude/commands/pair.md" ]'
 t "codex prompt installed" '[ -f "$HOME2/.codex/prompts/pair.md" ]'
-t "version marker" '[ -f "$HOME2/.pair/VERSION" ]'
-printf 'USER_ORIGINAL\n' > "$HOME2/.pair/MANAGER.md"
+t "version marker" '[ -f "$HOME2/.claude-codex-pair/VERSION" ]'
+printf 'USER_ORIGINAL\n' > "$HOME2/.claude-codex-pair/MANAGER.md"
 HOME="$HOME2" bash "$HERE/../install.sh" >/dev/null 2>&1
-t "backup created on reinstall" 'ls "$HOME2/.pair/"MANAGER.md.bak.* >/dev/null 2>&1'
-t "backup preserves original content" 'grep -rqx USER_ORIGINAL "$HOME2/.pair/"MANAGER.md.bak.*'
+t "backup created on reinstall" 'ls "$HOME2/.claude-codex-pair/"MANAGER.md.bak.* >/dev/null 2>&1'
+t "backup preserves original content" 'grep -rqx USER_ORIGINAL "$HOME2/.claude-codex-pair/"MANAGER.md.bak.*'
 HOME="$HOME2" bash "$HERE/../install.sh" >/dev/null 2>&1
-t "original backup still present after 2nd reinstall" 'grep -rqx USER_ORIGINAL "$HOME2/.pair/"MANAGER.md.bak.*'
+t "original backup still present after 2nd reinstall" 'grep -rqx USER_ORIGINAL "$HOME2/.claude-codex-pair/"MANAGER.md.bak.*'
 
 # --- e2e via installed verify.sh ---
 HOME="$HOME2" bash "$HERE/../install.sh" >/dev/null 2>&1
 PAIR_MOCK_STATUS=PASS PAIR_MOCK_NONCE= ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
-out=$( cd "$SCRATCH" && HOME="$HOME2" "$HOME2/.pair/verify.sh" claude high "$REQ4" ); rc=$?
+out=$( cd "$SCRATCH" && HOME="$HOME2" "$HOME2/.claude-codex-pair/verify.sh" claude high "$REQ4" ); rc=$?
 t "e2e exit 0" '[ "$rc" -eq 0 ]'
 t "e2e stdout STATUS" 'printf "%s" "$out" | grep -q "^STATUS: PASS"'
 

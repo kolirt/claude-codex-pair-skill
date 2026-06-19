@@ -11,7 +11,7 @@ case "$EFFORT" in high|medium) ;; *) echo "bad effort" >&2; exit 64;; esac
 
 REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "not a git repo" >&2; exit 64; }
 KEY="$(printf '%s' "$REPO" | shasum -a 256 | cut -c1-16)"
-HANDOFF="$HOME/.pair/handoff/$KEY"
+HANDOFF="$HOME/.claude-codex-pair/handoff/$KEY"
 mkdir -p "$HANDOFF"
 
 # Remove stale run dirs (>1 day); never touches concurrent rounds.
@@ -36,7 +36,7 @@ printf 'REQUEST_ID: %s\n' "$REQUEST_ID" >> "$RUN/request.md"
 
 # Build prompt with injected absolute paths.
 PROMPT_FILE="$RUN/prompt.txt"
-{ cat "$HOME/.pair/VERIFIER.md" 2>/dev/null || true
+{ cat "$HOME/.claude-codex-pair/VERIFIER.md" 2>/dev/null || true
   cat "$RUN/request.md"
   printf 'DIFF_PATCH: %s\n' "$RUN/diff.patch"
   printf 'REPO_ROOT: %s\n' "$REPO"

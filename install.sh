@@ -1,21 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
-SRC="$(cd "$(dirname "$0")" && pwd)"
-STAMP="$(git -C "$SRC" rev-parse --short HEAD 2>/dev/null || echo manual)"
-mkdir -p "$HOME/.pair" "$HOME/.claude/commands" "$HOME/.codex/prompts"
 
-put(){ # <src> <dst> <mode>
+# Source of files: a local clone if present next to this script, otherwise
+# fetched from GitHub raw — so `curl -fsSL .../install.sh | bash` works too.
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+RAW="${PAIR_RAW_BASE:-https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master}"
+
+have_local(){ [ -n "$SRC" ] && [ -f "$SRC/verify.sh" ]; }
+STAMP="$( { have_local && git -C "$SRC" rev-parse --short HEAD 2>/dev/null; } || echo remote )"
+
+mkdir -p "$HOME/.claude-codex-pair" "$HOME/.claude/commands" "$HOME/.codex/prompts"
+
+# fetch <relpath> -> stdout (local file if available, else GitHub raw)
+fetch(){
+  if have_local && [ -f "$SRC/$1" ]; then cat "$SRC/$1"
+  else curl -fsSL "$RAW/$1"; fi
+}
+
+put(){ # <relpath> <dst> <mode>
+  local tmp; tmp="$(mktemp)"
+  fetch "$1" > "$tmp" || { echo "fetch failed: $1" >&2; rm -f "$tmp"; exit 1; }
+  [ -s "$tmp" ] || { echo "empty source: $1" >&2; rm -f "$tmp"; exit 1; }
   # Fail-closed backup with a UNIQUE name: if backup fails, do NOT overwrite the original.
   if [ -f "$2" ]; then
     cp -p "$2" "$2.bak.$STAMP.$(date +%Y%m%d%H%M%S).$$" \
-      || { echo "backup failed for $2; aborting (original preserved)" >&2; exit 1; }
+      || { echo "backup failed for $2; aborting (original preserved)" >&2; rm -f "$tmp"; exit 1; }
   fi
-  install -m "$3" "$1" "$2"
+  install -m "$3" "$tmp" "$2"
+  rm -f "$tmp"
 }
-put "$SRC/verify.sh"        "$HOME/.pair/verify.sh"          0755
-put "$SRC/MANAGER.md"       "$HOME/.pair/MANAGER.md"         0644
-put "$SRC/VERIFIER.md"      "$HOME/.pair/VERIFIER.md"        0644
-put "$SRC/commands/pair.md" "$HOME/.claude/commands/pair.md" 0644
-put "$SRC/prompts/pair.md"  "$HOME/.codex/prompts/pair.md"   0644
-printf 'pair-mode %s\n' "$STAMP" > "$HOME/.pair/VERSION"
+
+put verify.sh        "$HOME/.claude-codex-pair/verify.sh"          0755
+put MANAGER.md       "$HOME/.claude-codex-pair/MANAGER.md"         0644
+put VERIFIER.md      "$HOME/.claude-codex-pair/VERIFIER.md"        0644
+put commands/pair.md "$HOME/.claude/commands/pair.md" 0644
+put prompts/pair.md  "$HOME/.codex/prompts/pair.md"   0644
+printf 'pair-mode %s\n' "$STAMP" > "$HOME/.claude-codex-pair/VERSION"
 echo "pair-mode installed ($STAMP)."

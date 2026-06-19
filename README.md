@@ -25,7 +25,7 @@ strengths give two independent perspectives.
   headless subprocess on demand, waits for the verdict, and moves on.
 - **Roles are interchangeable:** the manager can be Claude (then the verifier is
   Codex) or vice versa.
-- Exchange happens through files in `~/.pair/handoff/<repo-key>/` (outside the repo)
+- Exchange happens through files in `~/.claude-codex-pair/handoff/<repo-key>/` (outside the repo)
   plus a CLI call.
 
 ### Two modes
@@ -56,24 +56,32 @@ strengths give two independent perspectives.
 
 ## Installation
 
+One line (no clone needed):
+
 ```bash
-git clone <this-repo> claude-codex-pair-skill
-cd claude-codex-pair-skill
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master/install.sh | bash
 ```
 
-`install.sh` lays files out **globally** (once per machine; nothing lands in your
-working repos):
+Or from a clone:
+
+```bash
+git clone https://github.com/kolirt/claude-codex-pair-skill.git
+bash claude-codex-pair-skill/install.sh
+```
+
+`install.sh` works either way — it uses local files when run from a clone, or fetches
+them from GitHub raw when piped through `curl`. It lays files out **globally** (once per
+machine; nothing lands in your working repos):
 
 | Source | Destination |
 |--------|-------------|
-| `verify.sh`, `MANAGER.md`, `VERIFIER.md` | `~/.pair/` |
+| `verify.sh`, `MANAGER.md`, `VERIFIER.md` | `~/.claude-codex-pair/` |
 | `commands/pair.md` | `~/.claude/commands/pair.md` |
 | `prompts/pair.md` | `~/.codex/prompts/pair.md` |
 
 Existing files are backed up with a unique name (`*.bak.<stamp>.<ts>.<pid>`,
 fail-closed: if the backup fails, install does not overwrite the original).
-The version is written to `~/.pair/VERSION`. Re-running `install.sh` is safe
+The version is written to `~/.claude-codex-pair/VERSION`. Re-running `install.sh` is safe
 (idempotent) and updates to the current version.
 
 ---
@@ -98,7 +106,7 @@ than silently accepting.
 The manager composes a request file and runs:
 
 ```bash
-~/.pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>
+~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>
 ```
 
 The helper computes the paths itself, prepares the diff, calls the opposite agent,
@@ -205,7 +213,7 @@ ignored — protection against an accidental mock in production).
 ## Uninstall
 
 ```bash
-rm -rf ~/.pair
+rm -rf ~/.claude-codex-pair
 rm -f ~/.claude/commands/pair.md ~/.codex/prompts/pair.md
 ```
 
