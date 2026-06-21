@@ -23,6 +23,7 @@ strengths give two independent perspectives.
 - [How it works](#how-it-works)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Updating](#updating)
 - [Usage](#usage)
 - [Formats](#formats)
 - [What makes it robust](#what-makes-it-robust-engineering-decisions)
@@ -97,8 +98,40 @@ machine; nothing lands in your working repos):
 
 Existing files are backed up with a unique name (`*.bak.<stamp>.<ts>.<pid>`,
 fail-closed: if the backup fails, install does not overwrite the original).
-The version is written to `~/.claude-codex-pair/VERSION`. Re-running `install.sh` is safe
-(idempotent) and updates to the current version.
+The version (from the repo's `VERSION` file) is written to `~/.claude-codex-pair/VERSION`.
+Re-running `install.sh` is safe (idempotent) and updates to the current version.
+
+---
+
+## Updating
+
+The mode is versioned via the `VERSION` file (semver). Updating just re-runs the
+installer, which idempotently overwrites the global files (with backups).
+
+- **From inside the manager:** run `/pair update` (Claude) or say `pair update` (Codex).
+  It reinstalls the latest version, reports the new version, and re-reads the protocol.
+- **Manually:** re-run the install one-liner.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master/install.sh | bash
+```
+
+**Update notifications.** On `/pair on` (or activation in Codex) the manager does a
+best-effort, throttled (max once / 24h) check: one tiny fetch of `VERSION` from GitHub
+raw — *not* the rate-limited GitHub API — compared against the local version. If a newer
+one exists it prints `🔄 update available … run /pair update` and continues. Network
+errors are swallowed; activation is never blocked.
+
+**What a session picks up immediately vs. on restart:**
+
+| Updated file | Picked up |
+|--------------|-----------|
+| `verify.sh`, `VERIFIER.md` | immediately — spawned/read fresh per verification |
+| `MANAGER.md` | on the next `/pair on` (or `/pair update`, which re-reads it) |
+| `commands/pair.md`, `codex-skill/SKILL.md` | **on a new session** — the CLI registers the command/skill definition at startup |
+
+So protocol/behavior changes apply live; a change to the `/pair` command surface itself
+needs a session restart.
 
 ---
 
@@ -121,6 +154,11 @@ From there everything happens automatically: at forks the manager consults (CONS
 finished chunks go for review (REVIEW), it synthesizes the advice and reports to you.
 If the manager disagrees with a verdict on solid grounds, it escalates to you rather
 than silently accepting.
+
+If you drive a structured spec → plan → implement workflow (e.g. Superpowers), the
+manager also gates each artifact through the verifier: it CONSULTs while brainstorming,
+then REVIEWs the **spec**, the **plan**, and **each implementation task** before
+advancing — it won't pass a gate while the verdict sits at `CHANGES_REQUESTED`.
 
 ### Manual invocation (under the hood)
 
@@ -222,9 +260,9 @@ RECOMMENDATION: <one line>
 bash test/smoke.sh
 ```
 
-30 smoke tests via a mock verifier (no live CLI calls): repo-key, tracked+untracked
+Smoke tests via a mock verifier (no live CLI calls): repo-key, tracked+untracked
 diff, nonce, exit codes, MODE↔STATUS, stale/malformed/misplaced nonce, preamble
-tolerance, install + backup.
+tolerance, install + backup, version stamping.
 
 The mock is active only when `PAIR_TEST_MODE=1` (otherwise `PAIR_VERIFIER_CMD` is
 ignored — protection against an accidental mock in production).
@@ -270,10 +308,11 @@ rm -rf ~/.codex/skills/pair
 verify.sh          # orchestrator helper (the heart of the mode)
 MANAGER.md         # manager protocol
 VERIFIER.md        # verifier/consultant protocol
-commands/pair.md      # Claude Code slash command (/pair on|off)
-codex-skill/SKILL.md  # Codex skill -> ~/.codex/skills/pair/ (say "pair on")
-install.sh         # global install with backup
-test/smoke.sh      # 30 smoke tests
+VERSION            # semver, source of truth for the update check
+commands/pair.md      # Claude Code slash command (/pair on|off|update)
+codex-skill/SKILL.md  # Codex skill -> ~/.codex/skills/pair/ (say "pair on" / "pair update")
+install.sh         # global install/update with backup
+test/smoke.sh      # smoke tests
 ```
 
 ---

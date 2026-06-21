@@ -7,7 +7,6 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 RAW="${PAIR_RAW_BASE:-https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master}"
 
 have_local(){ [ -n "$SRC" ] && [ -f "$SRC/verify.sh" ]; }
-STAMP="$( { have_local && git -C "$SRC" rev-parse --short HEAD 2>/dev/null; } || echo remote )"
 
 mkdir -p "$HOME/.claude-codex-pair" "$HOME/.claude/commands" "$HOME/.codex/skills/pair"
 
@@ -16,6 +15,13 @@ fetch(){
   if have_local && [ -f "$SRC/$1" ]; then cat "$SRC/$1"
   else curl -fsSL "$RAW/$1"; fi
 }
+
+# Version comes from the VERSION file in the source (local clone or GitHub raw),
+# so curl-piped installs record a real version too (not a "remote" placeholder).
+# This is what the /pair update check compares against.
+VER="$(fetch VERSION 2>/dev/null | head -n1 | tr -d '[:space:]' || true)"
+[ -n "$VER" ] || VER="unknown"
+STAMP="$VER"
 
 put(){ # <relpath> <dst> <mode>
   local tmp; tmp="$(mktemp)"
@@ -35,5 +41,5 @@ put MANAGER.md       "$HOME/.claude-codex-pair/MANAGER.md"         0644
 put VERIFIER.md      "$HOME/.claude-codex-pair/VERIFIER.md"        0644
 put commands/pair.md    "$HOME/.claude/commands/pair.md"    0644
 put codex-skill/SKILL.md "$HOME/.codex/skills/pair/SKILL.md" 0644
-printf 'pair-mode %s\n' "$STAMP" > "$HOME/.claude-codex-pair/VERSION"
-echo "pair-mode installed ($STAMP)."
+printf '%s\n' "$VER" > "$HOME/.claude-codex-pair/VERSION"
+echo "pair-mode installed ($VER)."

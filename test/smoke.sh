@@ -102,6 +102,8 @@ t "VERIFIER installed" '[ -f "$HOME2/.claude-codex-pair/VERIFIER.md" ]'
 t "claude cmd installed" '[ -f "$HOME2/.claude/commands/pair.md" ]'
 t "codex skill installed" '[ -f "$HOME2/.codex/skills/pair/SKILL.md" ]'
 t "version marker" '[ -f "$HOME2/.claude-codex-pair/VERSION" ]'
+t "version marker is real semver (from VERSION file)" 'grep -qE "^[0-9]+\.[0-9]+\.[0-9]+$" "$HOME2/.claude-codex-pair/VERSION"'
+t "installed version matches repo VERSION" '[ "$(head -n1 "$HOME2/.claude-codex-pair/VERSION")" = "$(head -n1 "$HERE/../VERSION")" ]'
 printf 'USER_ORIGINAL\n' > "$HOME2/.claude-codex-pair/MANAGER.md"
 HOME="$HOME2" bash "$HERE/../install.sh" >/dev/null 2>&1
 t "backup created on reinstall" 'ls "$HOME2/.claude-codex-pair/"MANAGER.md.bak.* >/dev/null 2>&1'
