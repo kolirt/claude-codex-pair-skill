@@ -110,12 +110,21 @@ The mode is versioned via the `VERSION` file (semver). Updating just re-runs the
 installer, which idempotently overwrites the global files (with backups).
 
 - **From inside the manager:** run `/pair update` (Claude) or say `pair update` (Codex).
-  It reinstalls the latest version, reports the new version, and re-reads the protocol.
+  If the session is inside a clone of this repo it installs straight from it (no network);
+  otherwise it reports the new version and re-reads the protocol.
 - **Manually:** re-run the install one-liner.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master/install.sh | bash
 ```
+
+> **Restricted environments.** Some setups block an agent from downloading **and** executing
+> a remote script (e.g. the context-mode plugin intercepts `curl`/`wget`, or a strict
+> permission/auto mode denies fetch-and-execute). If `/pair update` can't run the installer
+> itself, run the one-liner yourself: in Claude Code prefix it with `!` so it executes in
+> your own shell, bypassing tool hooks and auto-mode —
+> `! curl -fsSL https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master/install.sh | bash`.
+> Or, from a local clone, just run `bash install.sh`.
 
 **Update notifications.** On `/pair on` (or activation in Codex) the manager does a
 best-effort, throttled (max once / 24h) check: one tiny fetch of `VERSION` from GitHub

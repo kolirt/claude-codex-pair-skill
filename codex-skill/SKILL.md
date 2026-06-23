@@ -7,9 +7,18 @@ description: Use when the user wants to enable pair mode and act as the MANAGER 
 
 When this skill is active, act as the MANAGER per the installed protocol.
 
-If the user says `pair update`: reinstall the latest version with
-`curl -fsSL https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master/install.sh | bash`,
-then report the new version (`head -n1 ~/.claude-codex-pair/VERSION`). The protocol files take effect
+If the user says `pair update`: prefer a local clone first (no network), else reinstall from the
+network. Run:
+```bash
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -n "$ROOT" ] && [ -f "$ROOT/install.sh" ] && [ -f "$ROOT/verify.sh" ] \
+   && [ -f "$ROOT/MANAGER.md" ] && grep -q claude-codex-pair "$ROOT/install.sh"; then
+  bash "$ROOT/install.sh"
+else
+  curl -fsSL https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master/install.sh | bash
+fi
+```
+Then report the new version (`head -n1 ~/.claude-codex-pair/VERSION`). The protocol files take effect
 immediately; if this skill file itself changed, reopen the session so Codex reloads it. Then continue as MANAGER.
 
 0. **Update check (best-effort, never block on it).** Run once at activation; prints a line only when an update exists, silent on network error or if checked within 24h. If it prints, pass it to the user verbatim:
@@ -19,9 +28,11 @@ immediately; if this skill file itself changed, reopen the session so Codex relo
      touch "$CHK" 2>/dev/null
      REMOTE=$(curl -fsSL --max-time 3 https://raw.githubusercontent.com/kolirt/claude-codex-pair-skill/master/VERSION 2>/dev/null | head -n1 | tr -d '[:space:]')
      LOCAL=$(head -n1 "$HOME/.claude-codex-pair/VERSION" 2>/dev/null | tr -d '[:space:]')
-     [ -n "$REMOTE" ] && [ "$REMOTE" != "$LOCAL" ] && \
+     if [ -n "$REMOTE" ] && [ "$REMOTE" != "$LOCAL" ]; then
        printf '🔄 Pair mode update available (%s → %s) — run: pair update\n' "${LOCAL:-?}" "$REMOTE"
+     fi
    fi
+   : # never let the best-effort check fail the activation
    ```
 1. Read `~/.claude-codex-pair/MANAGER.md` and follow it strictly as the MANAGER until the user says `pair off`.
 2. In short: at decision forks consult the verifier (CONSULT); send finished chunks for review (REVIEW); for independent audits of existing code use AUDIT (`MODE: audit` + `SCOPE`/`FOCUS`), then consolidate and REVIEW the result. Compose a request file and run
