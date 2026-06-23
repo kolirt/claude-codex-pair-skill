@@ -9,7 +9,7 @@ chunks go for an independent read-only review. Two different agents with differe
 strengths give two independent perspectives.
 
 ```
-┌─────────────┐   request (CONSULT|REVIEW)   ┌──────────────────┐
+┌─────────────┐ request (CONSULT|REVIEW|AUDIT) ┌──────────────────┐
 │   MANAGER    │ ──────────────────────────▶ │    VERIFIER      │
 │ (live CLI)  │                              │ (headless, RO)   │
 │             │ ◀────────────────────────── │  codex / claude  │
@@ -45,18 +45,19 @@ strengths give two independent perspectives.
 - Exchange happens through files in `~/.claude-codex-pair/handoff/<repo-key>/` (outside the repo)
   plus a CLI call.
 
-### Two modes
+### Three modes
 
 | Mode | When | Verdict |
 |------|------|---------|
 | **CONSULT** | advice on the approach *before/during* a decision (a fork) | `STATUS: ADVICE` + Reasoning/Risks/Alternatives |
 | **REVIEW** | checking a finished chunk | `STATUS: PASS` / `CHANGES_REQUESTED` + Findings |
+| **AUDIT** | independent discovery over a scope of existing code (both agents audit, then the manager consolidates and REVIEWs the result) | `STATUS: AUDIT_COMPLETE` + Findings (non-gating) |
 
 ### Read-only guarantee of the verifier
 
 - **Codex:** a real `--sandbox read-only` — writes are blocked by the kernel.
 - **Claude:** only the built-in `Read`/`Grep`/`Glob` tools (no Bash) — zero injection
-  surface. The helper prepares the diff; Claude reads it.
+  surface. For `review`/`consult` the helper prepares the diff and Claude reads it; for `audit` Claude reads the files named by `SCOPE` under `REPO_ROOT`.
 
 > For critical changes, the more trustworthy verifier is **Codex** (a real sandbox).
 
@@ -93,7 +94,7 @@ machine; nothing lands in your working repos):
 | Source | Destination |
 |--------|-------------|
 | `verify.sh`, `MANAGER.md`, `VERIFIER.md` | `~/.claude-codex-pair/` |
-| `commands/pair.md` | `~/.claude/commands/pair.md` (Claude slash command) |
+| `claude-skill/pair.md` | `~/.claude/commands/pair.md` (Claude slash command) |
 | `codex-skill/SKILL.md` | `~/.codex/skills/pair/SKILL.md` (Codex skill) |
 
 Existing files are backed up with a unique name (`*.bak.<stamp>.<ts>.<pid>`,
@@ -128,7 +129,7 @@ errors are swallowed; activation is never blocked.
 |--------------|-----------|
 | `verify.sh`, `VERIFIER.md` | immediately — spawned/read fresh per verification |
 | `MANAGER.md` | on the next `/pair on` (or `/pair update`, which re-reads it) |
-| `commands/pair.md`, `codex-skill/SKILL.md` | **on a new session** — the CLI registers the command/skill definition at startup |
+| `claude-skill/pair.md`, `codex-skill/SKILL.md` | **on a new session** — the CLI registers the command/skill definition at startup |
 
 So protocol/behavior changes apply live; a change to the `/pair` command surface itself
 needs a session restart.
@@ -168,12 +169,12 @@ The manager composes a request file and runs:
 ~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>
 ```
 
-The helper computes the paths itself, prepares the diff, calls the opposite agent,
+The helper computes the paths itself, prepares the diff (for `review`/`consult`; `audit` skips it), calls the opposite agent,
 returns the verdict on **stdout**, and exits with:
 
 | Code | Meaning |
 |------|---------|
-| `0`  | `PASS` / `ADVICE` |
+| `0`  | `PASS` / `ADVICE` / `AUDIT_COMPLETE` |
 | `10` | `CHANGES_REQUESTED` (fix and repeat) |
 | `20` | failed verification (missing/broken/stale verdict) — do NOT treat as verified |
 | `64` | invocation/environment error (bad args, not a git repo) — not a verdict |
@@ -207,6 +208,13 @@ CRITERIA: <how to choose>
 LEANING: <what the manager leans toward — so the consultant can challenge it>
 ```
 
+**AUDIT:**
+```
+MODE: audit
+SCOPE: <paths/globs/subsystem to inspect>
+FOCUS: <security|correctness|perf|arch|all>
+```
+
 `REQUEST_ID` (a nonce) is appended by `verify.sh` itself — no need to add it manually.
 
 ### Verdict (`stdout`)
@@ -234,11 +242,23 @@ RECOMMENDATION: <one line>
 ## Alternatives
 ```
 
+**AUDIT:**
+```
+STATUS: AUDIT_COMPLETE
+REQUEST_ID: <nonce>
+SUMMARY: <one line>
+
+## Findings
+- [severity: blocker|major|minor] <file:line> — <description>
+
+## Notes
+```
+
 ---
 
 ## What makes it robust (engineering decisions)
 
-- **Objective diff:** `git diff HEAD` (staged+unstaged) **plus** untracked
+- **Objective diff (review/consult):** `git diff HEAD` (staged+unstaged) **plus** untracked
   (`ls-files --others` + `diff --no-index`), without mutating the index.
 - **Stale-verdict protection:** a `REQUEST_ID` nonce in the request → the verifier
   must echo it in the verdict; write to `.tmp`, atomic move only on success;
@@ -272,8 +292,8 @@ ignored — protection against an accidental mock in production).
 ## Cache & cleanup
 
 Each verification round writes a small working set to
-`~/.claude-codex-pair/handoff/<repo-key>/run-<nonce>/` (request, diff, prompt, verdict).
-The diff can be sizable (the whole working-tree diff).
+`~/.claude-codex-pair/handoff/<repo-key>/run-<nonce>/` (request, prompt, verdict, plus a diff for `review`/`consult`).
+For `review`/`consult` the diff can be sizable (the whole working-tree diff); `audit` writes no diff.
 
 **Automatic:** on every `verify.sh` run, run dirs older than 1 day are pruned for that
 repo (you don't call this — it runs at the start of each invocation):
@@ -309,7 +329,7 @@ verify.sh          # orchestrator helper (the heart of the mode)
 MANAGER.md         # manager protocol
 VERIFIER.md        # verifier/consultant protocol
 VERSION            # semver, source of truth for the update check
-commands/pair.md      # Claude Code slash command (/pair on|off|update)
+claude-skill/pair.md  # Claude Code slash command (/pair on|off|update)
 codex-skill/SKILL.md  # Codex skill -> ~/.codex/skills/pair/ (say "pair on" / "pair update")
 install.sh         # global install/update with backup
 test/smoke.sh      # smoke tests

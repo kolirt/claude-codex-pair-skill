@@ -39,7 +39,7 @@ put(){ # <relpath> <dst> <mode>
 put verify.sh        "$HOME/.claude-codex-pair/verify.sh"          0755
 put MANAGER.md       "$HOME/.claude-codex-pair/MANAGER.md"         0644
 put VERIFIER.md      "$HOME/.claude-codex-pair/VERIFIER.md"        0644
-put commands/pair.md    "$HOME/.claude/commands/pair.md"    0644
+put claude-skill/pair.md "$HOME/.claude/commands/pair.md"   0644
 put codex-skill/SKILL.md "$HOME/.codex/skills/pair/SKILL.md" 0644
 printf '%s\n' "$VER" > "$HOME/.claude-codex-pair/VERSION"
 echo "pair-mode installed ($VER)."

@@ -24,8 +24,8 @@ immediately; if this skill file itself changed, reopen the session so Codex relo
    fi
    ```
 1. Read `~/.claude-codex-pair/MANAGER.md` and follow it strictly as the MANAGER until the user says `pair off`.
-2. In short: at decision forks consult the verifier (CONSULT); send finished chunks for review (REVIEW). Compose a request file and run
-   `~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>`, then read its stdout (the verdict) and exit code (`0` PASS/ADVICE, `10` CHANGES_REQUESTED, `20` failed, `64` invocation error).
+2. In short: at decision forks consult the verifier (CONSULT); send finished chunks for review (REVIEW); for independent audits of existing code use AUDIT (`MODE: audit` + `SCOPE`/`FOCUS`), then consolidate and REVIEW the result. Compose a request file and run
+   `~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>`, then read its stdout (the verdict) and exit code (`0` PASS/ADVICE/AUDIT_COMPLETE, `10` CHANGES_REQUESTED, `20` failed, `64` invocation error).
 3. Superpowers workflow gates: REVIEW the spec (after `brainstorming`), the plan (after `writing-plans`), and each task + the final result (during execution) through the verifier before advancing — do not pass a gate while it sits at CHANGES_REQUESTED.
 4. Synthesis, not obedience; escalate to the user on reasoned disagreement.
 

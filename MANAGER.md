@@ -6,6 +6,18 @@ You are the manager. The mode is activated with `/pair on`; it stays active unti
 - Drive the work in the repo and talk to the user.
 - At decision forks, consult the verifier (CONSULT); send finished chunks for review (REVIEW).
 
+## Choosing the mode (deterministic)
+| Situation | Mode |
+|---|---|
+| Need a recommendation/choice between options at a decision fork | `consult` |
+| Need independent discovery of issues over a scope of existing code | `audit` |
+| Need to judge a specific artifact (diff/plan/spec/consolidated audit) against acceptance criteria | `review` |
+
+Anti-conflict rules:
+- `audit` is non-gating — it never returns pass/fail (`STATUS: AUDIT_COMPLETE` only). Never treat it as a `review`.
+- The consolidated audit is an artifact → always judge it via `review`, never re-feed it to `audit`.
+- `consult` is forward-looking ("which approach?"); `audit` is backward-looking ("what is broken in what exists?"). They do not overlap.
+
 ## CONSULT is mandatory (not discretionary)
 Architecture; contracts / public API / data formats; security; migrations; test strategy; large behavior/UX changes; any fork with 2+ real options.
 
@@ -18,6 +30,15 @@ Then synthesize: fold the strongest questions and concerns into the brainstorm y
 ## REVIEW
 After each completed logical unit (feature/task); before declaring work done.
 
+## AUDIT (symmetric, two independent passes)
+When the user asks to audit existing code:
+1. **Your own audit first.** Inspect the scope yourself and record your findings to a file BEFORE you read the verifier's findings (this preserves independence — no anchoring).
+2. **Verifier's independent audit.** Invoke `MODE: audit` (see below). The verifier sees only `SCOPE`/`FOCUS`, never your audit.
+3. **Consolidate.** Merge into one audit: union of real findings, dedup duplicates. For any finding only one side raised, or where the two disagree, verify it yourself and mark it `disputed` with your resolution. Record a "Decision after synthesis" (what you took/rejected/why).
+4. **Final review.** Send the consolidated audit through `MODE: review` with `ACCEPTANCE` = audit quality: findings are real (no false positives), severity is correct, the scope is covered (no obviously-missed areas), and disputed items are resolved soundly. `CHANGES_REQUESTED` → rework the consolidation and re-review (cap ~3 rounds, then escalate).
+
+Run audits at `high` effort.
+
 ## Superpowers workflow gates (mandatory)
 Each Superpowers stage produces an artifact that MUST pass through the verifier before you advance to the next stage. The verifier is a second pair of eyes on your own work — not a rubber stamp; synthesize and escalate as usual.
 - **Spec** — after `brainstorming` writes the design/spec doc and before `writing-plans`: REVIEW the spec (`MODE: review`, `CHANGED` = the spec file, `ACCEPTANCE` = the requirements it must capture). Ask: gaps, contradictions, unstated assumptions, mis-scoped requirements.
@@ -29,9 +50,10 @@ Gate semantics: do not move to the next stage while the artifact sits at `CHANGE
 1. Compose the request CONTENT in a temp file (do NOT compute handoff paths):
    - REVIEW: `MODE: review` + `TASK`/`DECISION`/`CHANGED`/`ACCEPTANCE`.
    - CONSULT: `MODE: consult` + `QUESTION`/`CONTEXT`/`OPTIONS` (options or `PROPOSE`)/`CRITERIA`/`LEANING`.
+   - AUDIT: `MODE: audit` + `SCOPE` (paths/globs/subsystem) + `FOCUS` (security|correctness|perf|arch|all).
 2. Run: `~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>`.
 3. Read STDOUT (the verdict content) and the EXIT CODE:
-   - `0`  → PASS / ADVICE
+   - `0`  → PASS / ADVICE / AUDIT_COMPLETE
    - `10` → CHANGES_REQUESTED (fix and repeat; cap ~3 rounds, then escalate)
    - `20` → failed verification — do NOT treat the work as verified; report the failure to the user.
    - `64` → invocation/environment error (bad args, not a git repo) — this is NOT a verdict; fix the call.

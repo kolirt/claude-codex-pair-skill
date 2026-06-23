@@ -26,6 +26,7 @@ case "${PAIR_MOCK_STATUS:-PASS}" in
   MISPLACED) printf 'STATUS: PASS\nSUMMARY: m\n%s\n' "$rid";;  # nonce on line 3
   ADVICE)    printf 'STATUS: ADVICE\n%s\nRECOMMENDATION: m\n' "$rid";;
   CR)        printf 'STATUS: CHANGES_REQUESTED\n%s\nSUMMARY: m\n' "$rid";;
+  AUDIT)     printf 'STATUS: AUDIT_COMPLETE\n%s\nSUMMARY: m\n' "$rid";;
   *)         printf 'STATUS: PASS\n%s\nSUMMARY: m\n' "$rid";;
 esac
 MOCKEOF
@@ -92,6 +93,23 @@ PAIR_MOCK_STATUS=PASS ; export PAIR_MOCK_STATUS
 REQNL="$SCRATCH/reqnl.txt"; printf 'MODE: review\nTASK: nonl' > "$REQNL"
 t "request without trailing newline still validates" '[ "$(runrc "$REQNL")" -eq 0 ]'
 t "nonce stays standalone line (not glued)" 'grep -qE "^REQUEST_ID: [0-9a-f]+$" "$(latest_run)request.md"'
+
+# --- audit mode (scope-centric, no diff) ---
+REQA="$SCRATCH/reqa.txt"; printf 'MODE: audit\nSCOPE: a.txt\nFOCUS: all\n' > "$REQA"
+PAIR_MOCK_STATUS=AUDIT PAIR_MOCK_NONCE= ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
+t "audit AUDIT_COMPLETE exit 0" '[ "$(runrc "$REQA")" -eq 0 ]'
+t "audit prompt omits DIFF_PATCH" '! grep -q "^DIFF_PATCH: " "$(latest_run)prompt.txt"'
+t "audit prompt injects REPO_ROOT" 'grep -q "^REPO_ROOT: " "$(latest_run)prompt.txt"'
+t "audit writes no diff.patch" '[ ! -f "$(latest_run)diff.patch" ]'
+PAIR_MOCK_STATUS=PASS ; export PAIR_MOCK_STATUS
+t "audit/PASS mismatch exit 20" '[ "$(runrc "$REQA")" -eq 20 ]'
+PAIR_MOCK_STATUS=AUDIT PAIR_MOCK_NONCE=WRONG ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
+t "audit stale nonce exit 20" '[ "$(runrc "$REQA")" -eq 20 ]'
+PAIR_MOCK_NONCE= ; export PAIR_MOCK_NONCE
+REQAN="$SCRATCH/reqan.txt"; printf 'MODE: audit\nFOCUS: all\n' > "$REQAN"
+PAIR_MOCK_STATUS=AUDIT ; export PAIR_MOCK_STATUS
+t "audit without SCOPE exit 64" '[ "$(runrc "$REQAN")" -eq 64 ]'
+PAIR_MOCK_STATUS=PASS PAIR_MOCK_NONCE= ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
 
 # --- install.sh ---
 HOME2="$SCRATCH/home2"; mkdir -p "$HOME2"
