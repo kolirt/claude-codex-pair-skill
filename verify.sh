@@ -25,18 +25,26 @@ mkdir -p "$RUN"
 # Determine MODE up front: audit is scope-centric (no diff); others are diff-centric.
 MODE="$(grep -m1 '^MODE:' "$REQUEST_FILE" | awk '{print $2}')"
 
-if [ "$MODE" = audit ]; then
-  # Audit inspects existing code over a declared SCOPE; a diff is not relevant.
-  grep -qE '^SCOPE:[[:space:]]*[^[:space:]]' "$REQUEST_FILE" \
-    || { echo "audit mode requires a non-empty SCOPE: line" >&2; exit 64; }
-else
-  # Objective diff: tracked (diff HEAD) + untracked, without mutating the index.
-  git -C "$REPO" --no-pager diff HEAD > "$RUN/diff.patch"
-  git -C "$REPO" ls-files --others --exclude-standard -z \
-    | while IFS= read -r -d '' f; do
-        git -C "$REPO" --no-pager diff --no-index -- /dev/null "$f" >> "$RUN/diff.patch" || true
-      done
-fi
+case "$MODE" in
+  audit|diagnose)
+    # Scope-centric modes inspect existing code over a declared SCOPE; a diff is not relevant.
+    grep -qE '^SCOPE:[[:space:]]*[^[:space:]]' "$REQUEST_FILE" \
+      || { echo "$MODE mode requires a non-empty SCOPE: line" >&2; exit 64; }
+    # diagnose additionally needs the observed symptoms to investigate.
+    if [ "$MODE" = diagnose ]; then
+      grep -qE '^SYMPTOMS:[[:space:]]*[^[:space:]]' "$REQUEST_FILE" \
+        || { echo "diagnose mode requires a non-empty SYMPTOMS: line" >&2; exit 64; }
+    fi
+    ;;
+  *)
+    # Objective diff: tracked (diff HEAD) + untracked, without mutating the index.
+    git -C "$REPO" --no-pager diff HEAD > "$RUN/diff.patch"
+    git -C "$REPO" ls-files --others --exclude-standard -z \
+      | while IFS= read -r -d '' f; do
+          git -C "$REPO" --no-pager diff --no-index -- /dev/null "$f" >> "$RUN/diff.patch" || true
+        done
+    ;;
+esac
 
 # Place request + nonce (guarantee a trailing newline before appending).
 cp "$REQUEST_FILE" "$RUN/request.md"
@@ -47,7 +55,7 @@ printf 'REQUEST_ID: %s\n' "$REQUEST_ID" >> "$RUN/request.md"
 PROMPT_FILE="$RUN/prompt.txt"
 { cat "$HOME/.claude-codex-pair/VERIFIER.md" 2>/dev/null || true
   cat "$RUN/request.md"
-  [ "$MODE" = audit ] || printf 'DIFF_PATCH: %s\n' "$RUN/diff.patch"
+  case "$MODE" in audit|diagnose) ;; *) printf 'DIFF_PATCH: %s\n' "$RUN/diff.patch";; esac
   printf 'REPO_ROOT: %s\n' "$REPO"
 } > "$PROMPT_FILE"
 
@@ -85,12 +93,13 @@ case "$MODE" in
   review)  case "$first" in "STATUS: PASS"|"STATUS: CHANGES_REQUESTED") ;; *) fail20 "STATUS!=MODE(review)";; esac;;
   consult) [ "$first" = "STATUS: ADVICE" ] || fail20 "STATUS!=MODE(consult)";;
   audit)   [ "$first" = "STATUS: AUDIT_COMPLETE" ] || fail20 "STATUS!=MODE(audit)";;
+  diagnose) [ "$first" = "STATUS: DIAGNOSIS_COMPLETE" ] || fail20 "STATUS!=MODE(diagnose)";;
   *) fail20 "unknown MODE";;
 esac
 
 cat "$BLOCK"   # stdout: clean verdict block only (no preamble)
 case "$first" in
-  "STATUS: PASS"|"STATUS: ADVICE"|"STATUS: AUDIT_COMPLETE") exit 0;;
+  "STATUS: PASS"|"STATUS: ADVICE"|"STATUS: AUDIT_COMPLETE"|"STATUS: DIAGNOSIS_COMPLETE") exit 0;;
   "STATUS: CHANGES_REQUESTED") exit 10;;
   *) fail20 "unreachable STATUS";;   # guard
 esac

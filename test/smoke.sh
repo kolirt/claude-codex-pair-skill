@@ -27,6 +27,7 @@ case "${PAIR_MOCK_STATUS:-PASS}" in
   ADVICE)    printf 'STATUS: ADVICE\n%s\nRECOMMENDATION: m\n' "$rid";;
   CR)        printf 'STATUS: CHANGES_REQUESTED\n%s\nSUMMARY: m\n' "$rid";;
   AUDIT)     printf 'STATUS: AUDIT_COMPLETE\n%s\nSUMMARY: m\n' "$rid";;
+  DIAGNOSE)  printf 'STATUS: DIAGNOSIS_COMPLETE\n%s\nSUMMARY: m\n' "$rid";;
   *)         printf 'STATUS: PASS\n%s\nSUMMARY: m\n' "$rid";;
 esac
 MOCKEOF
@@ -109,6 +110,25 @@ PAIR_MOCK_NONCE= ; export PAIR_MOCK_NONCE
 REQAN="$SCRATCH/reqan.txt"; printf 'MODE: audit\nFOCUS: all\n' > "$REQAN"
 PAIR_MOCK_STATUS=AUDIT ; export PAIR_MOCK_STATUS
 t "audit without SCOPE exit 64" '[ "$(runrc "$REQAN")" -eq 64 ]'
+PAIR_MOCK_STATUS=PASS PAIR_MOCK_NONCE= ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
+
+# --- diagnose mode (scope-centric + symptoms, no diff) ---
+REQD="$SCRATCH/reqd.txt"; printf 'MODE: diagnose\nSCOPE: a.txt\nSYMPTOMS: breaks on click\n' > "$REQD"
+PAIR_MOCK_STATUS=DIAGNOSE PAIR_MOCK_NONCE= ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
+t "diagnose DIAGNOSIS_COMPLETE exit 0" '[ "$(runrc "$REQD")" -eq 0 ]'
+t "diagnose prompt omits DIFF_PATCH" '! grep -q "^DIFF_PATCH: " "$(latest_run)prompt.txt"'
+t "diagnose prompt injects REPO_ROOT" 'grep -q "^REPO_ROOT: " "$(latest_run)prompt.txt"'
+t "diagnose writes no diff.patch" '[ ! -f "$(latest_run)diff.patch" ]'
+PAIR_MOCK_STATUS=PASS ; export PAIR_MOCK_STATUS
+t "diagnose/PASS mismatch exit 20" '[ "$(runrc "$REQD")" -eq 20 ]'
+PAIR_MOCK_STATUS=DIAGNOSE PAIR_MOCK_NONCE=WRONG ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
+t "diagnose stale nonce exit 20" '[ "$(runrc "$REQD")" -eq 20 ]'
+PAIR_MOCK_NONCE= ; export PAIR_MOCK_NONCE
+PAIR_MOCK_STATUS=DIAGNOSE ; export PAIR_MOCK_STATUS
+REQDS="$SCRATCH/reqds.txt"; printf 'MODE: diagnose\nSYMPTOMS: x\n' > "$REQDS"
+t "diagnose without SCOPE exit 64" '[ "$(runrc "$REQDS")" -eq 64 ]'
+REQDN="$SCRATCH/reqdn.txt"; printf 'MODE: diagnose\nSCOPE: a.txt\n' > "$REQDN"
+t "diagnose without SYMPTOMS exit 64" '[ "$(runrc "$REQDN")" -eq 64 ]'
 PAIR_MOCK_STATUS=PASS PAIR_MOCK_NONCE= ; export PAIR_MOCK_STATUS PAIR_MOCK_NONCE
 
 # --- install.sh ---

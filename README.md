@@ -9,11 +9,11 @@ chunks go for an independent read-only review. Two different agents with differe
 strengths give two independent perspectives.
 
 ```
-┌─────────────┐ request (CONSULT|REVIEW|AUDIT) ┌──────────────────┐
-│   MANAGER    │ ──────────────────────────▶ │    VERIFIER      │
-│ (live CLI)  │                              │ (headless, RO)   │
-│             │ ◀────────────────────────── │  codex / claude  │
-└─────────────┘   verdict (stdout + exit)    └──────────────────┘
+┌─────────────┐ request (CONSULT|REVIEW|AUDIT|DIAGNOSE) ┌──────────────────┐
+│   MANAGER   │ ──────────────────────────────────────▶ │     VERIFIER     │
+│  (live CLI) │                                         │  (headless, RO)  │
+│             │ ◀────────────────────────────────────── │  codex / claude  │
+└─────────────┘         verdict (stdout + exit)         └──────────────────┘
 ```
 
 ---
@@ -45,19 +45,20 @@ strengths give two independent perspectives.
 - Exchange happens through files in `~/.claude-codex-pair/handoff/<repo-key>/` (outside the repo)
   plus a CLI call.
 
-### Three modes
+### Four modes
 
 | Mode | When | Verdict |
 |------|------|---------|
 | **CONSULT** | advice on the approach *before/during* a decision (a fork) | `STATUS: ADVICE` + Reasoning/Risks/Alternatives |
 | **REVIEW** | checking a finished chunk | `STATUS: PASS` / `CHANGES_REQUESTED` + Findings |
 | **AUDIT** | independent discovery over a scope of existing code (both agents audit, then the manager consolidates and REVIEWs the result) | `STATUS: AUDIT_COMPLETE` + Findings (non-gating) |
+| **DIAGNOSE** | independent root-cause analysis of a KNOWN symptom/bug in existing code (both agents diagnose, then the manager consolidates and REVIEWs the result) | `STATUS: DIAGNOSIS_COMPLETE` + Diagnosis (non-gating) |
 
 ### Read-only guarantee of the verifier
 
 - **Codex:** a real `--sandbox read-only` — writes are blocked by the kernel.
 - **Claude:** only the built-in `Read`/`Grep`/`Glob` tools (no Bash) — zero injection
-  surface. For `review`/`consult` the helper prepares the diff and Claude reads it; for `audit` Claude reads the files named by `SCOPE` under `REPO_ROOT`.
+  surface. For `review`/`consult` the helper prepares the diff and Claude reads it; for `audit`/`diagnose` Claude reads the files named by `SCOPE` under `REPO_ROOT`.
 
 > For critical changes, the more trustworthy verifier is **Codex** (a real sandbox).
 
@@ -178,12 +179,12 @@ The manager composes a request file and runs:
 ~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>
 ```
 
-The helper computes the paths itself, prepares the diff (for `review`/`consult`; `audit` skips it), calls the opposite agent,
+The helper computes the paths itself, prepares the diff (for `review`/`consult`; `audit`/`diagnose` skip it), calls the opposite agent,
 returns the verdict on **stdout**, and exits with:
 
 | Code | Meaning |
 |------|---------|
-| `0`  | `PASS` / `ADVICE` / `AUDIT_COMPLETE` |
+| `0`  | `PASS` / `ADVICE` / `AUDIT_COMPLETE` / `DIAGNOSIS_COMPLETE` |
 | `10` | `CHANGES_REQUESTED` (fix and repeat) |
 | `20` | failed verification (missing/broken/stale verdict) — do NOT treat as verified |
 | `64` | invocation/environment error (bad args, not a git repo) — not a verdict |
@@ -224,6 +225,13 @@ SCOPE: <paths/globs/subsystem to inspect>
 FOCUS: <security|correctness|perf|arch|all>
 ```
 
+**DIAGNOSE:**
+```
+MODE: diagnose
+SCOPE: <paths/globs/subsystem to inspect>
+SYMPTOMS: <observed bug(s) / repro — what is wrong, expected vs actual>
+```
+
 `REQUEST_ID` (a nonce) is appended by `verify.sh` itself — no need to add it manually.
 
 ### Verdict (`stdout`)
@@ -259,6 +267,23 @@ SUMMARY: <one line>
 
 ## Findings
 - [severity: blocker|major|minor] <file:line> — <description>
+
+## Notes
+```
+
+**DIAGNOSE:**
+```
+STATUS: DIAGNOSIS_COMPLETE
+REQUEST_ID: <nonce>
+SUMMARY: <one line>
+
+## Diagnosis
+- [symptom: <ref>] <root cause @ file:line | not established>
+  mechanism: <why the symptom happens>
+  evidence: <what in the code proves it>
+  confidence: high|medium|low
+  fix-constraints: <what any fix must satisfy / cannot do>   (optional)
+  missing-evidence: <needed when confidence<high or "not established">
 
 ## Notes
 ```
@@ -302,7 +327,7 @@ ignored — protection against an accidental mock in production).
 
 Each verification round writes a small working set to
 `~/.claude-codex-pair/handoff/<repo-key>/run-<nonce>/` (request, prompt, verdict, plus a diff for `review`/`consult`).
-For `review`/`consult` the diff can be sizable (the whole working-tree diff); `audit` writes no diff.
+For `review`/`consult` the diff can be sizable (the whole working-tree diff); `audit`/`diagnose` write no diff.
 
 **Automatic:** on every `verify.sh` run, run dirs older than 1 day are pruned for that
 repo (you don't call this — it runs at the start of each invocation):

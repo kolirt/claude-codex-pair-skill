@@ -11,12 +11,17 @@ You are the manager. The mode is activated with `/pair on`; it stays active unti
 |---|---|
 | Need a recommendation/choice between options at a decision fork | `consult` |
 | Need independent discovery of issues over a scope of existing code | `audit` |
+| Need the root cause of a KNOWN symptom/bug in existing code | `diagnose` |
 | Need to judge a specific artifact (diff/plan/spec/consolidated audit) against acceptance criteria | `review` |
 
 Anti-conflict rules:
 - `audit` is non-gating — it never returns pass/fail (`STATUS: AUDIT_COMPLETE` only). Never treat it as a `review`.
 - The consolidated audit is an artifact → always judge it via `review`, never re-feed it to `audit`.
 - `consult` is forward-looking ("which approach?"); `audit` is backward-looking ("what is broken in what exists?"). They do not overlap.
+- `diagnose` is behavior-first (explain a KNOWN symptom) while `audit` is code-first (discover UNKNOWN defects). Discriminator: is an observed symptom/repro provided? Yes → `diagnose`; no → `audit`.
+- An `audit` finding usually already locates its cause — do not redundantly re-diagnose it. But `audit` only guarantees discovery, not a mechanism; if an audit-surfaced symptom has a genuinely uncertain root cause, escalating that one symptom to `diagnose` is correct. The symptom's source (user or a prior audit) does not gate the choice.
+- A mixed request ("diagnose X, and find what else is broken") = two invocations: `diagnose` for X plus a separate `audit` for the rest. Do not merge them.
+- Bug-handling order: `diagnose` (when the root cause is uncertain) → `consult` per the existing mandatory-CONSULT triggers → implementation → `review`. `diagnose` precedes `consult`; it does not narrow or replace it.
 
 ## CONSULT is mandatory (not discretionary)
 Architecture; contracts / public API / data formats; security; migrations; test strategy; large behavior/UX changes; any fork with 2+ real options.
@@ -39,6 +44,19 @@ When the user asks to audit existing code:
 
 Run audits at `high` effort.
 
+## DIAGNOSE (symmetric, two independent passes)
+When you need the root cause of a known symptom/bug in existing code:
+1. **Your own hypothesis first.** Investigate the scope yourself and record your root-cause hypothesis to a file BEFORE you read the verifier's diagnosis (preserves independence — no anchoring).
+2. **Verifier's independent diagnosis.** Invoke `MODE: diagnose` (see below) with `SCOPE` + `SYMPTOMS` only — never your hypothesis.
+3. **Consolidate.** Per symptom, reconcile the two root causes. For any symptom where the sides disagree, or only one side located the cause, verify it yourself and mark it `disputed` with your resolution. Record a "Decision after synthesis".
+4. **Final review.** Send the consolidated diagnosis through `MODE: review` with `ACCEPTANCE` = root cause is correct and evidence-backed, no misattribution, fix-constraints are sound, and every symptom is addressed. `CHANGES_REQUESTED` → rework and re-review (cap ~3 rounds, then escalate).
+
+Trigger (discretionary): `diagnose` is mandatory when the root cause is non-trivial/uncertain after your first inspection; for an obvious single-line cause you may skip it, but MUST log the skip in one line (what the cause is, why it is obvious).
+Under-specified symptoms: do not block the user — proceed best-effort; if repro/expected/actual are missing and cannot be inferred, the diagnosis carries `confidence: low` + explicit `missing-evidence`.
+Diagnosis is "what & why" only: it may state fix-constraints but never chooses the fix (that is a separate `consult`).
+
+Run diagnoses at `high` effort.
+
 ## Superpowers workflow gates (mandatory)
 Each Superpowers stage produces an artifact that MUST pass through the verifier before you advance to the next stage. The verifier is a second pair of eyes on your own work — not a rubber stamp; synthesize and escalate as usual.
 - **Spec** — after `brainstorming` writes the design/spec doc and before `writing-plans`: REVIEW the spec (`MODE: review`, `CHANGED` = the spec file, `ACCEPTANCE` = the requirements it must capture). Ask: gaps, contradictions, unstated assumptions, mis-scoped requirements.
@@ -51,9 +69,10 @@ Gate semantics: do not move to the next stage while the artifact sits at `CHANGE
    - REVIEW: `MODE: review` + `TASK`/`DECISION`/`CHANGED`/`ACCEPTANCE`.
    - CONSULT: `MODE: consult` + `QUESTION`/`CONTEXT`/`OPTIONS` (options or `PROPOSE`)/`CRITERIA`/`LEANING`.
    - AUDIT: `MODE: audit` + `SCOPE` (paths/globs/subsystem) + `FOCUS` (security|correctness|perf|arch|all).
+   - DIAGNOSE: `MODE: diagnose` + `SCOPE` (paths/globs/subsystem) + `SYMPTOMS` (observed bug(s)/repro). No `FOCUS` — the symptoms already focus the investigation.
 2. Run: `~/.claude-codex-pair/verify.sh <your-cli: claude|codex> <effort: high|medium> <request-file>`.
 3. Read STDOUT (the verdict content) and the EXIT CODE:
-   - `0`  → PASS / ADVICE / AUDIT_COMPLETE
+   - `0`  → PASS / ADVICE / AUDIT_COMPLETE / DIAGNOSIS_COMPLETE
    - `10` → CHANGES_REQUESTED (fix and repeat; cap ~3 rounds, then escalate)
    - `20` → failed verification — do NOT treat the work as verified; report the failure to the user.
    - `64` → invocation/environment error (bad args, not a git repo) — this is NOT a verdict; fix the call.
